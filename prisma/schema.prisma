@@ -1,0 +1,207 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  transactions Transaction[]
+  categories   Category[]
+  notes        Note[]
+  goals        Goal[]
+  reminders    Reminder[]
+  activities   Activity[]
+
+  @@map("users")
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+model Category {
+  id     String          @id @default(cuid())
+  name   String
+  type   TransactionType
+  icon   String?
+  color  String?
+  userId String
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  goals        Goal[]
+
+  @@unique([userId, name, type])
+  @@map("categories")
+}
+
+model Transaction {
+  id          String          @id @default(cuid())
+  amount      Float
+  type        TransactionType
+  description String?
+  date        DateTime
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  userId      String
+  categoryId  String
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@index([userId, type])
+  @@map("transactions")
+}
+
+enum NoteStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+model Note {
+  id        String     @id @default(cuid())
+  title     String
+  tags      String[]
+  status    NoteStatus @default(ACTIVE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  userId    String
+
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  blocks NoteBlock[]
+
+  @@index([userId, status])
+  @@map("notes")
+}
+
+enum BlockType {
+  TEXT
+  CHECKLIST
+  TABLE
+  IMAGE
+}
+
+model NoteBlock {
+  id        String    @id @default(cuid())
+  type      BlockType
+  content   Json
+  order     Int
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  noteId    String
+
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@index([noteId, order])
+  @@map("note_blocks")
+}
+
+enum GoalType {
+  SAVING
+  SPENDING_LIMIT
+}
+
+enum GoalPeriod {
+  MONTHLY
+  YEARLY
+}
+
+enum GoalStatus {
+  SAFE
+  WARNING
+  EXCEEDED
+}
+
+model Goal {
+  id            String     @id @default(cuid())
+  title         String
+  type          GoalType
+  targetAmount  Float
+  currentAmount Float      @default(0)
+  period        GoalPeriod
+  status        GoalStatus @default(SAFE)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  userId        String
+  categoryId    String?
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@map("goals")
+}
+
+enum ReminderStatus {
+  PENDING
+  COMPLETED
+  DISMISSED
+}
+
+enum ReminderPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model Reminder {
+  id          String           @id @default(cuid())
+  title       String
+  description String?
+  dueDate     DateTime
+  status      ReminderStatus   @default(PENDING)
+  priority    ReminderPriority @default(MEDIUM)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  userId      String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, dueDate])
+  @@map("reminders")
+}
+
+enum ActivityType {
+  TRANSACTION
+  NOTE
+  GOAL
+  REMINDER
+}
+
+enum ActivityAction {
+  CREATED
+  UPDATED
+  DELETED
+}
+
+model Activity {
+  id          String         @id @default(cuid())
+  type        ActivityType
+  action      ActivityAction
+  description String
+  metadata    Json?
+  createdAt   DateTime       @default(now())
+  userId      String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("activities")
+}
